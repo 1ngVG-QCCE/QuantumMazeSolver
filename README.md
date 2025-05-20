@@ -20,3 +20,7 @@ pip install -r requirements.txt
 ```
 
 
+ALDO ALDO....Dove sei finito?
+Nel bauule...verso l'infinito.
+Le brigate rosse ti danno la caccia,
+ma tu sei un mago e non temi la minaccia!

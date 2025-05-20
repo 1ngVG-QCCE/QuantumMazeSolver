@@ -9,3 +9,4 @@ ipywidgets==8.0.4
 kaleidoscope==0.2.0
 qiskit-ibm-provider==0.11.0
 qiskit_ibm_runtime==0.36.1
+git+https://github.com/1ngVG-QCCE/pymaze.git

@@ -1,1 +1,1 @@
-# Quantum_MazeSolver
+# QuantumMazeSolver

@@ -2,12 +2,16 @@
 import matplotlib.pyplot as plt  # for plots
 import numpy as np
 import qiskit
-from qiskit.quantum_info import Operator  # to extract the circuit matrix
+from qiskit.quantum_info import Operator, Statevector  # to extract the circuit matrix
 from qiskit.visualization import array_to_latex # to display matrices and state vectors in latex format
 from qiskit.visualization import plot_bloch_vector, plot_bloch_multivector,plot_state_qsphere # to display results in a nice way
 import math
 import sys
 from IPython.display import display, Markdown, Latex
+import sympy
+from sympy.physics.quantum import Ket
+from sympy.printing.latex import latex
+from functools import reduce
 
 # get the Qiskit version
 def get_qiskit_version():
@@ -192,3 +196,16 @@ def display_structure(qc):
 def display_info(qc, isv, isvc, osv, osvc):
     display_structure(qc)
     display_io_info(isv, isvc, osv, osvc)
+
+def probabilities_from_statevector(state: Statevector):
+    format_string = "{0:0" + str(int(np.log2(len(state)))) + "b}"
+    all_states = [Ket(format_string.format(i)) for i in range(2 ** int(np.log2(len(state))))]
+    probabilities = [s * sympy.nsimplify(p) for s, p in zip(all_states, state)]
+    return sympy.nsimplify(sympy.factor(reduce(lambda x, y: x + y, probabilities, 0)))
+
+
+def print_statevector(state: Statevector, prefix: str = None):
+    out_string = '$$\n'
+    if prefix:
+        out_string += prefix + '\n'
+    return Latex(f'{out_string}{latex(probabilities_from_statevector(state))}\n$$')

@@ -200,12 +200,14 @@ def display_info(qc, isv, isvc, osv, osvc):
 def probabilities_from_statevector(state: Statevector):
     format_string = "{0:0" + str(int(np.log2(len(state)))) + "b}"
     all_states = [Ket(format_string.format(i)) for i in range(2 ** int(np.log2(len(state))))]
-    probabilities = [s * sympy.nsimplify(p) for s, p in zip(all_states, state)]
-    return sympy.nsimplify(sympy.factor(reduce(lambda x, y: x + y, probabilities, 0)))
-
+    return [(s, p) for s, p in zip(all_states, state)]
 
 def print_statevector(state: Statevector, prefix: str = None):
+    probabilities = sympy.nsimplify(sympy.factor(reduce(lambda x, y: x + y, [s * sympy.nsimplify(p) for s, p in probabilities_from_statevector(state)], 0)))
     out_string = '$$\n'
     if prefix:
         out_string += prefix + '\n'
-    return Latex(f'{out_string}{latex(probabilities_from_statevector(state))}\n$$')
+    return Latex(f'{out_string}{latex(probabilities)}\n$$')
+
+def find_most_probable(state: Statevector):
+    return max(probabilities_from_statevector(state), key=lambda x: x[1])[0]

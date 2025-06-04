@@ -11,23 +11,35 @@ import io
 
 # Utility classes
 
+Edge = tuple[int, int]
+
 class MazeOracleGenerator:
 
-    def __init__(self, total_nodes: int, max_path_length: int, directed_graph: bool = False):
+    def __init__(self, total_nodes: int, max_path_length: int | None = None, directed_graph: bool = False):
         self.__node_bits_size = int(np.ceil( np.log2(total_nodes) ))
-        self.__max_path_length = max_path_length
+        self.__max_path_length = max_path_length if max_path_length else total_nodes - 1
         self.__directed_graph = directed_graph
         self.__edges = []
+        self.__first_node = None
+        self.__last_node = None
 
-    def add_edges(self, edges: list[tuple]) -> 'MazeOracleGenerator':
+    def add_edges(self, edges: list[Edge]) -> 'MazeOracleGenerator':
         self.__edges += edges
         return self
 
-    def add_edge(self, edge: tuple[int]) -> 'MazeOracleGenerator':
+    def add_edge(self, edge: Edge) -> 'MazeOracleGenerator':
         self.add_edges([edge])
         return self
     
-    def __generate_edge_check_circuit(self):
+    def set_first_node(self, node: int) -> 'MazeOracleGenerator':
+        self.__first_node = node
+        return self
+    
+    def set_last_node(self, node: int) -> 'MazeOracleGenerator':
+        self.__last_node = node
+        return self
+    
+    def __generate_edge_check_circuit(self, edges: list, directed_graph: bool):
         size = self.__node_bits_size
 
         circ = QuantumCircuit((2 * size) + 1, name='Edge Check')
@@ -46,11 +58,11 @@ class MazeOracleGenerator:
             add_x(from_node, 0)
             add_x(to_node, size)
 
-        for e in self.__edges:
+        for e in edges:
             map_edge(e[0], e[1])
             circ.barrier()
 
-            if not self.__directed_graph:
+            if not directed_graph:
                 map_edge(e[1], e[0])
                 circ.barrier()
 
@@ -62,8 +74,25 @@ class MazeOracleGenerator:
 
         # generate circuit for edge checking on whole graph
         full_edge_check = QuantumCircuit(total_size, name='Full Edge Check')
-        edge_check = self.__generate_edge_check_circuit()
-        for s in range(self.__max_path_length):
+        starting_check = 0
+        ending_check = self.__max_path_length
+
+        # first node special check
+        if self.__first_node:
+            first_edge_check = self.__generate_edge_check_circuit(filter(lambda e: e[0] == self.__first_node, self.__edges), True)
+            starting_check = 1
+            full_edge_check.append(first_edge_check, list(range(0, 2 * self.__node_bits_size)) + [num_qubit_in_path])
+
+        # last node special check
+        if self.__last_node:
+            last_edge_check  = self.__generate_edge_check_circuit(filter(lambda e: e[1] == self.__last_node, self.__edges), True)
+            ending_check = self.__max_path_length - 1
+            start_qubit = ending_check * self.__node_bits_size
+            full_edge_check.append(last_edge_check, list(range(start_qubit, start_qubit + 2 * self.__node_bits_size)) + [num_qubit_in_path + ending_check])
+
+        # all other nodes check
+        edge_check = self.__generate_edge_check_circuit(self.__edges, self.__directed_graph)
+        for s in range(starting_check, ending_check):
             start_qubit = s * self.__node_bits_size
             full_edge_check.append(edge_check, list(range(start_qubit, start_qubit + 2 * self.__node_bits_size)) + [num_qubit_in_path + s])
         

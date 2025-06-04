@@ -78,13 +78,13 @@ class MazeOracleGenerator:
         ending_check = self.__max_path_length
 
         # first node special check
-        if self.__first_node:
+        if self.__first_node is not None:
             first_edge_check = self.__generate_edge_check_circuit(filter(lambda e: e[0] == self.__first_node, self.__edges), True)
             starting_check = 1
-            full_edge_check.append(first_edge_check, list(range(0, 2 * self.__node_bits_size)) + [num_qubit_in_path])
+            full_edge_check.append(first_edge_check, list(range(2 * self.__node_bits_size)) + [num_qubit_in_path])
 
         # last node special check
-        if self.__last_node:
+        if self.__last_node is not None:
             last_edge_check  = self.__generate_edge_check_circuit(filter(lambda e: e[1] == self.__last_node, self.__edges), True)
             ending_check = self.__max_path_length - 1
             start_qubit = ending_check * self.__node_bits_size

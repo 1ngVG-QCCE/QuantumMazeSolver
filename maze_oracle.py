@@ -71,27 +71,31 @@ class MazeOracleGenerator:
     def generate(self):
         num_qubit_in_path = (self.__max_path_length + 1) * self.__node_bits_size
         total_size = num_qubit_in_path + self.__max_path_length
+        edges = self.__edges
 
         # generate circuit for edge checking on whole graph
         full_edge_check = QuantumCircuit(total_size, name='Full Edge Check')
         starting_check = 0
         ending_check = self.__max_path_length
 
-        # first node special check
-        if self.__first_node is not None:
-            first_edge_check = self.__generate_edge_check_circuit(filter(lambda e: e[0] == self.__first_node, self.__edges), True)
-            starting_check = 1
-            full_edge_check.append(first_edge_check, list(range(2 * self.__node_bits_size)) + [num_qubit_in_path])
-
         # last node special check
         if self.__last_node is not None:
-            last_edge_check  = self.__generate_edge_check_circuit(filter(lambda e: e[1] == self.__last_node, self.__edges), True)
-            ending_check = self.__max_path_length - 1
+            edges = edges + [(self.__last_node, self.__last_node)] # add self-cycle to last node (for termination)
+            last_edge_check  = self.__generate_edge_check_circuit(filter(lambda e: e[1] == self.__last_node, edges), True) # only check edges containing the last node
+
+            ending_check = self.__max_path_length - 1 # update offset
             start_qubit = ending_check * self.__node_bits_size
             full_edge_check.append(last_edge_check, list(range(start_qubit, start_qubit + 2 * self.__node_bits_size)) + [num_qubit_in_path + ending_check])
 
+        # first node special check
+        if self.__first_node is not None:
+            first_edge_check = self.__generate_edge_check_circuit(filter(lambda e: e[0] == self.__first_node, edges), True) # only check edges containing the first node
+            
+            starting_check = 1 # update offset
+            full_edge_check.append(first_edge_check, list(range(2 * self.__node_bits_size)) + [num_qubit_in_path])
+
         # all other nodes check
-        edge_check = self.__generate_edge_check_circuit(self.__edges, self.__directed_graph)
+        edge_check = self.__generate_edge_check_circuit(edges, self.__directed_graph)
         for s in range(starting_check, ending_check):
             start_qubit = s * self.__node_bits_size
             full_edge_check.append(edge_check, list(range(start_qubit, start_qubit + 2 * self.__node_bits_size)) + [num_qubit_in_path + s])

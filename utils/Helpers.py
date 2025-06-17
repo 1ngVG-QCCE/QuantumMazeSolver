@@ -12,6 +12,11 @@ import sympy
 from sympy.physics.quantum import Ket
 from sympy.printing.latex import latex
 from functools import reduce
+from PIL import Image as im
+import requests
+import base64
+import io
+
 
 # get the Qiskit version
 def get_qiskit_version():
@@ -211,3 +216,12 @@ def print_statevector(state: Statevector, prefix: str = None):
 
 def find_most_probable(state: Statevector):
     return max(probabilities_from_statevector(state), key=lambda x: x[1])[0]
+
+def mm(graph):
+    graphbytes = graph.encode("utf8")
+    base64_bytes = base64.urlsafe_b64encode(graphbytes)
+    base64_string = base64_bytes.decode("ascii")
+    img = im.open(io.BytesIO(requests.get('https://mermaid.ink/img/' + base64_string).content))
+    plt.imshow(img)
+    plt.axis('off') # allow to hide axis
+    plt.savefig('image.png', dpi=1200)

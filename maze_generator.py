@@ -122,6 +122,11 @@ class Maze(Graph):
         self.__height = height
         if end is None:
             end = (width - 1, height - 1)
+
+        if not self.__coordinate_on_boundary(*start):
+            raise ValueError(f"Start {start} must be on the maze boundary")
+        if not self.__coordinate_on_boundary(*end):
+            raise ValueError(f"End {end} must be on the maze boundary")
         nodes = [MazeCell(y * width + x, x, y) for y in range(height) for x in range(width)]
 
         coord_to_node = {(node.x, node.y): node for node in nodes}
@@ -130,6 +135,9 @@ class Maze(Graph):
         self.__end = coord_to_node[end]
         edges = []    
         super().__init__(nodes, edges)
+
+    def __coordinate_on_boundary(self, x: int, y: int) -> bool:
+        return x == 0 or x == self.width - 1 or y == 0 or y == self.height - 1
 
     @property
     def width(self) -> int:
@@ -176,7 +184,6 @@ class Maze(Graph):
             for x in range(self.width):
                 cx, cy = x, self.height - y - 1
 
-                # Draw walls only if on boundary or no connection
                 if y == 0 or wall_exists(x, y, x, y - 1):  # North
                     ax.plot([cx, cx + 1], [cy + 1, cy + 1], 'k')
                 if x == 0 or wall_exists(x, y, x - 1, y):  # West
@@ -200,7 +207,6 @@ class Maze(Graph):
         open_wall(self.start.x, self.start.y)
         open_wall(self.end.x, self.end.y)
 
-        # Draw the path if provided
         if path:
             px = [cell.x + 0.5 for cell in path]
             py = [self.height - cell.y - 0.5 for cell in path]

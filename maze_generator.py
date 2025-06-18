@@ -1,6 +1,10 @@
 import random
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
+import sys
+sys.path.insert(1, '../')
+from utils import Helpers as hp
+
 
 class Node:
     def __init__(self, id: int, edges: list['Edge'] = []):
@@ -77,7 +81,7 @@ class Graph:
     
     @staticmethod
     def from_edges(edges: list[tuple[int, int]], bidirectional: bool = False) -> 'Graph':
-        graph = Graph(map(lambda node_id: Node(node_id), list(set([node_id for edge in edges for node_id in edge]))))
+        graph = Graph(list(map(lambda node_id: Node(node_id), list(set([node_id for edge in edges for node_id in edge])))))
         for e_start, e_end in edges:
             graph.connect_nodes(e_start, e_end)
             if bidirectional:
@@ -99,6 +103,18 @@ class Graph:
         n1 = self.node_by_id(n1_id)
         n2 = self.node_by_id(n2_id)
         self.__edges.remove(Edge(n1, n2))
+
+    def show(self, path: list[Node] = None):
+        mermaid_lines = ["flowchart LR;"]
+        for edge in self.edges:
+            mermaid_lines.append(f"    n{edge.start.id} --> n{edge.end.id};")
+
+        if path:
+            for start, end in zip(path, path[1:]):
+                mermaid_lines.append(f"    ns{start.id} --> ns{end.id};")
+        hp.mm("\n".join(mermaid_lines))
+
+        
         
 class Maze(Graph):
     def __init__(self, width: int, height: int, start: tuple[int, int] = (0, 0), end: tuple[int, int] = None):
@@ -239,16 +255,21 @@ class PrimGenerator(MazeGenerator):
         return maze
 
 class BFSSolver:
-    def solve(self, maze: Maze) -> list[MazeCell]:
-        start = maze.start
-        end = maze.end
+    def solve_maze(self, maze: Maze) -> list[MazeCell]:
+        return self.__solve(maze, maze.start, maze.end)
+    
+    def solve_graph(self, graph: Graph, start: int, end: int) -> list[Node]:
+        start_node = graph.node_by_id(start)
+        end_node = graph.node_by_id(end)
+        return self.__solve(graph, start_node, end_node)
 
+    def __solve(self, graph: Graph, start: Node, end: Node) -> list[Node]:
         queue = [start]
         visited = {start}
         parent = {start: None}
 
-        adjacency = {node: [] for node in maze.nodes}
-        for edge in maze.edges:
+        adjacency = {node: [] for node in graph.nodes}
+        for edge in graph.edges:
             adjacency[edge.start].append(edge.end)
             adjacency[edge.end].append(edge.start)
 

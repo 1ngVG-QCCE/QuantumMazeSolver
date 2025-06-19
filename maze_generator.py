@@ -1,6 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
+import numpy as np
 import sys
 sys.path.insert(1, '../')
 from utils import Helpers as hp
@@ -67,8 +68,16 @@ class Edge:
         return False
 
 class Graph:
-    def __init__(self, nodes: set[Node] = [], edges: list[Edge] = []):
+    def __init__(self, nodes: set[Node], start: Node, end: Node, edges: list[Edge] = []):
         self.__nodes = nodes
+        if start in nodes:
+            self.__start = start
+        else:
+            raise ValueError(f"Start node {start} is not in the graph nodes")
+        if end in nodes:
+            self.__end = end
+        else:
+            raise ValueError(f"End node {end} is not in the graph nodes")
         self.__edges = edges
 
     @property
@@ -79,9 +88,25 @@ class Graph:
     def edges(self) -> frozenset[Edge]:
         return frozenset(self.__edges)
     
+    @property
+    def start(self) -> Node:
+        return self.__start
+    
+    @property
+    def end(self) -> Node:
+        return self.__end
+    
+    @property
+    def total_nodes(self) -> int:
+        return len(self.nodes)
+    
+    @property
+    def bits_per_node(self) -> int:
+        return int(np.ceil(np.log2(self.total_nodes))) if self.total_nodes > 0 else 0
+    
     @staticmethod
-    def from_edges(edges: list[tuple[int, int]], bidirectional: bool = False) -> 'Graph':
-        graph = Graph(list(map(lambda node_id: Node(node_id), list(set([node_id for edge in edges for node_id in edge])))))
+    def from_edges(edges: list[tuple[int, int]], start: int, end: int, bidirectional: bool = False) -> 'Graph':
+        graph = Graph(list(map(lambda node_id: Node(node_id), list(set([node_id for edge in edges for node_id in edge])))), Node(start), Node(end))
         for e_start, e_end in edges:
             graph.connect_nodes(e_start, e_end)
             if bidirectional:
@@ -113,28 +138,22 @@ class Graph:
             for start, end in zip(path, path[1:]):
                 mermaid_lines.append(f"    ns{start.id} --> ns{end.id};")
         hp.mm("\n".join(mermaid_lines))
-
-        
-        
+ 
 class Maze(Graph):
     def __init__(self, width: int, height: int, start: tuple[int, int] = (0, 0), end: tuple[int, int] = None):
         self.__width = width
         self.__height = height
         if end is None:
             end = (width - 1, height - 1)
-
         if not self.__coordinate_on_boundary(*start):
             raise ValueError(f"Start {start} must be on the maze boundary")
         if not self.__coordinate_on_boundary(*end):
             raise ValueError(f"End {end} must be on the maze boundary")
         nodes = [MazeCell(y * width + x, x, y) for y in range(height) for x in range(width)]
-
+        edges = []    
         coord_to_node = {(node.x, node.y): node for node in nodes}
 
-        self.__start = coord_to_node[start]
-        self.__end = coord_to_node[end]
-        edges = []    
-        super().__init__(nodes, edges)
+        super().__init__(nodes, coord_to_node[start], coord_to_node[end], edges)
 
     def __coordinate_on_boundary(self, x: int, y: int) -> bool:
         return x == 0 or x == self.width - 1 or y == 0 or y == self.height - 1
@@ -148,16 +167,16 @@ class Maze(Graph):
         return self.__height
     
     @property
-    def nodes(self) -> frozenset[MazeCell]:
-        return super().nodes
-    
-    @property
     def start(self) -> MazeCell:
-        return self.__start
+        return super().start
     
     @property
     def end(self) -> MazeCell:
-        return self.__end
+        return super().end
+    
+    @property
+    def nodes(self) -> frozenset[MazeCell]:
+        return super().nodes
         
     def node_by_id(self, node_id) -> MazeCell:
         return super().node_by_id(node_id)
@@ -176,7 +195,6 @@ class Maze(Graph):
         ax.axis('off')
 
         def open_wall(node: MazeCell):
-            print(f"Opening wall at {node.x}, {node.y}")
             if node.x == 0: # connect to the left
                 new_connection = {(node.x, node.y), (node.x - 1, node.y)}
             elif node.x == self.width - 1: # connect to the right

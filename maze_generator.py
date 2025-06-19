@@ -175,7 +175,21 @@ class Maze(Graph):
         ax.set_aspect('equal')
         ax.axis('off')
 
+        def open_wall(node: MazeCell):
+            print(f"Opening wall at {node.x}, {node.y}")
+            if node.x == 0: # connect to the left
+                new_connection = {(node.x, node.y), (node.x - 1, node.y)}
+            elif node.x == self.width - 1: # connect to the right
+                new_connection = {(node.x, node.y), (node.x + 1, node.y)}
+            elif node.y == 0: # connect to the top
+                new_connection = {(node.x, node.y), (node.x, node.y - 1)}
+            elif node.y == self.height - 1: # connect to the bottom  
+                new_connection = {(node.x, node.y), (node.x, node.y + 1)}
+            return new_connection    
+
         connections = {frozenset({(e.start.x, e.start.y), (e.end.x, e.end.y)}) for e in self.edges}
+        connections.add(frozenset(open_wall(self.start)))
+        connections.add(frozenset(open_wall(self.end)))
 
         def wall_exists(x1, y1, x2, y2):
             return frozenset({(x1, y1), (x2, y2)}) not in connections
@@ -183,29 +197,15 @@ class Maze(Graph):
         for y in range(self.height):
             for x in range(self.width):
                 cx, cy = x, self.height - y - 1
-
-                if y == 0 or wall_exists(x, y, x, y - 1):  # North
+                if wall_exists(x, y, x, y - 1):  # North
                     ax.plot([cx, cx + 1], [cy + 1, cy + 1], 'k')
-                if x == 0 or wall_exists(x, y, x - 1, y):  # West
+                if wall_exists(x, y, x - 1, y):  # West
                     ax.plot([cx, cx], [cy, cy + 1], 'k')
-                if y == self.height - 1 or wall_exists(x, y, x, y + 1):  # South
+                if wall_exists(x, y, x, y + 1):  # South
                     ax.plot([cx, cx + 1], [cy, cy], 'k')
-                if x == self.width - 1 or wall_exists(x, y, x + 1, y):  # East
+                if wall_exists(x, y, x + 1, y):  # East
                     ax.plot([cx + 1, cx + 1], [cy, cy + 1], 'k')
 
-        def open_wall(x, y):
-            cx, cy = x, self.height - y - 1
-            if x == 0:
-                ax.plot([cx, cx], [cy, cy + 1], 'w', linewidth=3)
-            elif x == self.width - 1:
-                ax.plot([cx + 1, cx + 1], [cy, cy + 1], 'w', linewidth=3)
-            elif y == 0:
-                ax.plot([cx, cx + 1], [cy, cy], 'w', linewidth=3)
-            elif y == self.height - 1:
-                ax.plot([cx, cx + 1], [cy + 1, cy + 1], 'w', linewidth=3)
-
-        open_wall(self.start.x, self.start.y)
-        open_wall(self.end.x, self.end.y)
 
         if path:
             px = [cell.x + 0.5 for cell in path]

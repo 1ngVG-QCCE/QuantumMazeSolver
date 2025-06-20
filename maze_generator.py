@@ -100,10 +100,6 @@ class Graph:
     def total_nodes(self) -> int:
         return len(self.nodes)
     
-    @property
-    def bits_per_node(self) -> int:
-        return int(np.ceil(np.log2(self.total_nodes))) if self.total_nodes > 0 else 0
-    
     @staticmethod
     def from_edges(edges: list[tuple[int, int]], start: int, end: int, bidirectional: bool = False) -> 'Graph':
         graph = Graph(list(map(lambda node_id: Node(node_id), list(set([node_id for edge in edges for node_id in edge])))), Node(start), Node(end))

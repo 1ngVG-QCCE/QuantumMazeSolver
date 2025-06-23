@@ -1,14 +1,9 @@
-# Imports
-
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import XGate, ZGate
-from PIL import Image as im
-import requests
-import base64
-import matplotlib.pyplot as plt
+from qiskit.circuit.library import XGate, ZGate, GroverOperator
 import numpy as np
-import io
 from maze_generator import Graph, Edge
+from qiskit import QuantumCircuit, transpile
+from qiskit_aer import AerSimulator
 
 class MazeCircuitInfo:
     def __init__(self, graph: Graph, max_path_length: int = None):
@@ -23,7 +18,10 @@ class MazeCircuitInfo:
         return self.__graph
     @property
     def max_path_length(self) -> int:
-        return self.__max_path_length   
+        return self.__max_path_length 
+    @property
+    def num_nodes_in_max_path(self) -> int:
+        return self.__num_nodes_in_max_path  
     @property
     def bits_per_node(self) -> int:
         return self.__bits_per_node
@@ -57,7 +55,7 @@ class MazeOracle(QuantumCircuit):
     # encodes the nodes of an edge with their binary quantum circuit representation
     def __encode_edge_nodes(self, from_node: int, to_node: int):
         number_of_qubits_for_a_node = self.__maze_circuit_info.bits_per_node
-        number_of_qubits_for_two_nodes = (2 * number_of_qubits_for_a_node)
+        number_of_qubits_for_two_nodes = 2 * number_of_qubits_for_a_node
         quantum_circuit = QuantumCircuit(number_of_qubits_for_two_nodes, name=f'Edge Encoder {from_node} -> {to_node}')
         quantum_circuit.append(self.__node_to_binary(from_node), range(number_of_qubits_for_a_node))
         quantum_circuit.append(self.__node_to_binary(to_node), range(number_of_qubits_for_a_node, number_of_qubits_for_two_nodes))
@@ -66,7 +64,7 @@ class MazeOracle(QuantumCircuit):
     # checks if an edge is valid (input: pair of nodes, output: ancilla)
     def __map_edge(self, from_node: int, to_node: int):
         number_of_qubits_for_a_node = self.__maze_circuit_info.bits_per_node
-        ancilla_index = number_of_qubits_for_two_nodes = (2 * number_of_qubits_for_a_node)
+        ancilla_index = number_of_qubits_for_two_nodes = 2 * number_of_qubits_for_a_node
         quantum_circuit = QuantumCircuit(number_of_qubits_for_two_nodes + 1, name=f'Edge Check {from_node} -> {to_node}')
         edge_encoder_quantum_circuit = self.__encode_edge_nodes(from_node, to_node)
               
@@ -88,28 +86,27 @@ class MazeOracle(QuantumCircuit):
     
     # check if the nodes are equal 
     def __generate_turn_back_check_circuit(self):
-        # last = self.__last_node
-        size = self.__maze_circuit_info.bits_per_node
-        circ = QuantumCircuit((2 * size) + 1, name='Turn Back Check')
+        number_of_qubits_for_a_node = self.__maze_circuit_info.bits_per_node
+        ancilla_index = number_of_qubits_for_two_nodes = 2 * number_of_qubits_for_a_node
+        total_size = number_of_qubits_for_two_nodes + 1
+        circ = QuantumCircuit(total_size, name='Turn Back Check')
 
-        # first check: nodes are not equal
-        for i in range(size):
-            circ.cx(i, i + size)
-            circ.x(i + size)
-        circ.append(XGate().control(size), range(size, (2 * size) + 1))
-        circ.x((2 * size))
-        for i in range(size):
-            circ.x(i + size)
-            circ.cx(i, i + size)
+        # first check: two nodes are different
+        different_nodes_check_circuit = QuantumCircuit(number_of_qubits_for_two_nodes, name='Different Nodes Check')
+        for i in range(number_of_qubits_for_a_node):
+            different_nodes_check_circuit.cx(i, i + number_of_qubits_for_a_node)
+            different_nodes_check_circuit.x(i + number_of_qubits_for_a_node)
+
+        circ.append(different_nodes_check_circuit, range(number_of_qubits_for_two_nodes))    
+        circ.append(XGate().control(number_of_qubits_for_a_node), range(number_of_qubits_for_a_node, total_size))
+        circ.x(ancilla_index)
+        circ.append(different_nodes_check_circuit.inverse(), range(number_of_qubits_for_two_nodes))    
 
         # second check: first node is equal to the last node
-        # if last is not None:
         last_id = self.__maze_circuit_info.graph.end.id
-        circ.append(self.__node_to_binary(last_id), range(size))
-        circ.append(XGate().control(size), list(range(size)) + [size*2])
-        circ.append(self.__node_to_binary(last_id), range(size))
-
-        # circ.append(self.__node_to_binary(last), range(2*size))
+        circ.append(self.__node_to_binary(last_id), range(number_of_qubits_for_a_node))
+        circ.append(XGate().control(number_of_qubits_for_a_node), list(range(number_of_qubits_for_a_node)) + [ancilla_index])
+        circ.append(self.__node_to_binary(last_id), range(number_of_qubits_for_a_node))
 
         return circ
 
@@ -143,3 +140,77 @@ class MazeOracle(QuantumCircuit):
         self.append(full_edge_check, range(self.__total_size))
         self.append(ZGate().control(self.__num_ancillas - 1), range(self.__maze_circuit_info.num_qubits_in_max_path, self.__total_size))
         self.append(full_edge_check.inverse(), range(self.__total_size)) 
+
+class QuantumMazeCircuit(Graph, QuantumCircuit):
+    def __init__(self, graph: Graph, max_path_length: int = None, turn_back_check: bool = False):
+        self.__info = MazeCircuitInfo(graph, max_path_length)
+        oracle = MazeOracle(self.__info, turn_back_check)
+        
+
+        QuantumCircuit.__init__(self, len(oracle.qubits), self.info.num_qubits_in_max_path) # init quantum circuit
+        self.name = 'Maze Solver'
+        diffuser = GroverOperator(QuantumCircuit(self.info.num_qubits_in_max_path))
+        iterations = int(np.ceil( (np.pi / 4) * np.sqrt(self.info.num_qubits_in_max_path) ))
+        for i in range(self.info.num_qubits_in_max_path):
+            self.h(i)
+
+        for i in range(iterations):
+            self.barrier()
+            self.append(oracle, range(len(oracle.qubits)))             # Apply oracle
+            self.append(diffuser, range(self.info.num_qubits_in_max_path))    # Apply diffuser
+
+    @property
+    def info(self) -> int:
+        return self.__info
+    
+    def __getattr__(self, name):
+        return getattr(self.info.graph, name)
+
+
+class Path(list[int]):
+    def __init__(self, l: list[int]):
+        super().__init__()
+        for e in l:
+            self.append(e)
+
+    def remove_cycles(self) -> 'Path':
+        p = Path([])
+        count = set()
+        for x in self:
+            if x in count:
+                g = p.pop()
+                while g != x:
+                    count.discard(g)
+                    g = p.pop()
+            p.append(x)
+            count.add(x)
+        return p
+
+    def __repr__(self):
+        if len(self) > 0:
+            s = [repr(e) for e in self]
+            return '[' + str.join(' -> ', s) + ']'
+        else:
+            return '[]'
+    def __hash__(self):
+        return hash(repr(self))
+
+class QuantumMazeSolver:
+    def __result_to_path(self, result: str, num_nodes_in_max_path: int, node_size: int) -> Path:
+        path = []
+        for i in range(num_nodes_in_max_path):
+            offset = i*node_size
+            n = int(result[offset : offset+node_size], 2)
+            path.insert(0, n)
+        return Path(path)
+
+    def run(self, circuit: QuantumMazeCircuit, shots: int = 1) -> list[Path]:
+        sim = AerSimulator()
+        transpiled = transpile(circuit, sim)
+        # Add measure to circuit
+        transpiled.measure(range(len(circuit.clbits)), range(len(circuit.clbits)))
+        # Run
+        results = sim.run(transpiled, shots=shots, memory=True).result().get_memory()
+        paths = [self.__result_to_path(r, circuit.info.num_nodes_in_max_path, circuit.info.bits_per_node) for r in results]
+        return paths 
+     

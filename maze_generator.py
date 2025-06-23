@@ -68,7 +68,7 @@ class Edge:
         return False
 
 class Graph:
-    def __init__(self, nodes: set[Node], start: Node, end: Node, edges: list[Edge] = []):
+    def __init__(self, nodes: set[Node], start: Node, end: Node, edges: list[Edge] = None):
         self.__nodes = nodes
         if start in nodes:
             self.__start = start
@@ -78,7 +78,10 @@ class Graph:
             self.__end = end
         else:
             raise ValueError(f"End node {end} is not in the graph nodes")
-        self.__edges = edges
+        if edges is None:
+            self.__edges = []
+        else:
+            self.__edges = list(edges)
 
     @property
     def nodes(self) -> frozenset[Node]:
@@ -125,12 +128,12 @@ class Graph:
         n2 = self.node_by_id(n2_id)
         self.__edges.remove(Edge(n1, n2))
 
-    def show(self, path: list[Node] = None):
+    def show(self, path: list[int] = None):
         mermaid_lines = ["flowchart LR;"]
         for edge in self.edges:
             mermaid_lines.append(f"    n{edge.start.id} --> n{edge.end.id};")
-
         if path:
+            path = [self.node_by_id(cell_id) for cell_id in path]
             for start, end in zip(path, path[1:]):
                 mermaid_lines.append(f"    ns{start.id} --> ns{end.id};")
         hp.mm("\n".join(mermaid_lines))
@@ -220,10 +223,10 @@ class Maze(Graph):
                 if wall_exists(x, y, x + 1, y):  # East
                     ax.plot([cx + 1, cx + 1], [cy, cy + 1], 'k')
 
-
+        cells = [self.node_by_id(cell_id) for cell_id in path]
         if path:
-            px = [cell.x + 0.5 for cell in path]
-            py = [self.height - cell.y - 0.5 for cell in path]
+            px = [cell.x + 0.5 for cell in cells]
+            py = [self.height - cell.y - 0.5 for cell in cells]
             ax.plot(px, py, color='red', linewidth=2)
 
         plt.show()
@@ -275,15 +278,15 @@ class PrimGenerator(MazeGenerator):
         return maze
 
 class BFSSolver:
-    def solve_maze(self, maze: Maze) -> list[MazeCell]:
+    def solve_maze(self, maze: Maze) -> list[int]:
         return self.__solve(maze, maze.start, maze.end)
     
-    def solve_graph(self, graph: Graph, start: int, end: int) -> list[Node]:
+    def solve_graph(self, graph: Graph, start: int, end: int) -> list[int]:
         start_node = graph.node_by_id(start)
         end_node = graph.node_by_id(end)
         return self.__solve(graph, start_node, end_node)
 
-    def __solve(self, graph: Graph, start: Node, end: Node) -> list[Node]:
+    def __solve(self, graph: Graph, start: Node, end: Node) -> list[int]:
         queue = [start]
         visited = {start}
         parent = {start: None}
@@ -307,7 +310,7 @@ class BFSSolver:
         path = []
         cur = end
         while cur is not None:
-            path.append(cur)
+            path.append(cur.id)
             cur = parent.get(cur)
         path.reverse()
 

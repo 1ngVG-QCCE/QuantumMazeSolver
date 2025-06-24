@@ -148,15 +148,14 @@ class QuantumMazeCircuit(Graph, QuantumCircuit):
 
         QuantumCircuit.__init__(self, len(oracle.qubits), self.info.num_qubits_in_max_path) # init quantum circuit
         self.name = 'Maze Solver'
-        diffuser = GroverOperator(QuantumCircuit(self.info.num_qubits_in_max_path))
+        grover_operator = GroverOperator(oracle, reflection_qubits=list(range(self.info.num_qubits_in_max_path)), name="Grover Operator")
         iterations = int(np.ceil( (np.pi / 4) * np.sqrt(self.info.num_qubits_in_max_path) ))
         for i in range(self.info.num_qubits_in_max_path):
             self.h(i)
 
         for i in range(iterations):
             self.barrier()
-            self.append(oracle, range(len(oracle.qubits)))             # Apply oracle
-            self.append(diffuser, range(self.info.num_qubits_in_max_path))    # Apply diffuser
+            self.append(grover_operator, range(len(oracle.qubits)))  
 
     @property
     def info(self) -> int:

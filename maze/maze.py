@@ -1,11 +1,5 @@
-import random
-from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
-import numpy as np
-import sys
-sys.path.insert(1, '../')
-from utils import Helpers as hp
-
+import utils.Helpers as hp
 
 class Node:
     def __init__(self, id: int, edges: list['Edge'] = []):
@@ -223,95 +217,10 @@ class Maze(Graph):
                 if wall_exists(x, y, x + 1, y):  # East
                     ax.plot([cx + 1, cx + 1], [cy, cy + 1], 'k')
 
-        cells = [self.node_by_id(cell_id) for cell_id in path]
         if path:
+            cells = [self.node_by_id(cell_id) for cell_id in path]
             px = [cell.x + 0.5 for cell in cells]
             py = [self.height - cell.y - 0.5 for cell in cells]
             ax.plot(px, py, color='red', linewidth=2)
 
         plt.show()
-
-class MazeGenerator(ABC):
-    def __init__(self):
-        pass
-
-    @abstractmethod
-    def generate_maze(self, width, height, seed = None) -> Maze:
-        pass
-
-class PrimGenerator(MazeGenerator):
-    def generate_maze(self, width: int, height: int, start:tuple[int, int], end: tuple[int, int], seed=None) -> 'Maze':
-        random.seed(seed if seed else random.randint(0, 0xFFFFFFFF))
-        maze = Maze(width, height, start, end)
-        visited: set[int] = set()
-        frontier: list[tuple[int, int]] = []
-
-        visited.add(maze.start.id)
-
-        def neighbor_ids(cell: MazeCell) -> list[int]:
-            directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-            result = []
-            for dx, dy in directions:
-                nx, ny = cell.x + dx, cell.y + dy
-                if 0 <= nx < maze.width and 0 <= ny < maze.height:
-                    nid = ny * maze.width + nx
-                    result.append(nid)
-            return result
-
-        for nid in neighbor_ids(maze.start):
-            frontier.append((maze.start.id, nid))
-
-        while frontier:
-            idx = random.randint(0, len(frontier) - 1)
-            from_id, to_id = frontier.pop(idx)
-
-            if to_id in visited:
-                continue
-
-            maze.connect_nodes(from_id, to_id)
-            visited.add(to_id)
-
-            to_cell = maze.node_by_id(to_id)
-            for nid in neighbor_ids(to_cell):
-                if nid not in visited:
-                    frontier.append((to_id, nid))
-        return maze
-
-class BFSSolver:
-    def solve_maze(self, maze: Maze) -> list[int]:
-        return self.__solve(maze, maze.start, maze.end)
-    
-    def solve_graph(self, graph: Graph, start: int, end: int) -> list[int]:
-        start_node = graph.node_by_id(start)
-        end_node = graph.node_by_id(end)
-        return self.__solve(graph, start_node, end_node)
-
-    def __solve(self, graph: Graph, start: Node, end: Node) -> list[int]:
-        queue = [start]
-        visited = {start}
-        parent = {start: None}
-
-        adjacency = {node: [] for node in graph.nodes}
-        for edge in graph.edges:
-            adjacency[edge.start].append(edge.end)
-            adjacency[edge.end].append(edge.start)
-
-        while queue:
-            current = queue.pop(0)
-            if current == end:
-                break
-
-            for neighbor in adjacency[current]:
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    parent[neighbor] = current
-                    queue.append(neighbor)
-
-        path = []
-        cur = end
-        while cur is not None:
-            path.append(cur.id)
-            cur = parent.get(cur)
-        path.reverse()
-
-        return path

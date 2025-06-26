@@ -162,7 +162,7 @@ class QuantumMazeCircuit(Graph, QuantumCircuit):
         QuantumCircuit.__init__(self, len(oracle.qubits), self.info.num_qubits_in_max_path) # init quantum circuit
         self.name = 'Maze Solver'
         
-        iterations = int(np.ceil( (np.pi / 4) * np.sqrt(self.info.num_qubits_in_max_path) ))
+        iterations = int(np.ceil( (np.pi / 4) * np.sqrt(2 ** self.info.num_qubits_in_max_path) ))
         for i in range(self.info.num_qubits_in_max_path):
             self.h(i)
 

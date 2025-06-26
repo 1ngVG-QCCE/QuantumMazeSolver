@@ -150,7 +150,7 @@ class MazeOracle(QuantumCircuit):
         self.append(full_edge_check.inverse(), range(self.__total_size)) 
 
 class QuantumMazeCircuit(Graph, QuantumCircuit):
-    def __init__(self, graph: Graph, max_path_length: int = None, turn_back_check: bool = False):
+    def __init__(self, graph: Graph, max_path_length: int = None, turn_back_check: bool = False, number_of_solutions: int = 1):
         self.__info = MazeCircuitInfo(graph, max_path_length)
         oracle = MazeOracle(self.__info, turn_back_check)
         grover_operator = GroverDiffusionOperator(self.info.num_qubits_in_max_path)
@@ -162,7 +162,7 @@ class QuantumMazeCircuit(Graph, QuantumCircuit):
         QuantumCircuit.__init__(self, len(oracle.qubits), self.info.num_qubits_in_max_path) # init quantum circuit
         self.name = 'Maze Solver'
         
-        iterations = int(np.ceil( (np.pi / 4) * np.sqrt(2 ** self.info.num_qubits_in_max_path) ))
+        iterations = int(np.ceil((np.pi / 4) * np.sqrt((2 ** self.info.num_qubits_in_max_path) / number_of_solutions )))
         for i in range(self.info.num_qubits_in_max_path):
             self.h(i)
 

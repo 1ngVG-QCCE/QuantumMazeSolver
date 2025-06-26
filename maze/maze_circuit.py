@@ -27,7 +27,16 @@ class MazeCircuitInfo:
     @property
     def num_qubits_in_max_path(self) -> int:
         return self.__num_qubits_in_max_path
-    
+
+class GroverDiffusionOperator(QuantumCircuit):
+    def __init__(self, n_qubits: int):
+        super().__init__(n_qubits, name="Grover Operator")
+        self.h(range(n_qubits))
+        self.x(range(n_qubits))
+        self.append(ZGate().control(n_qubits - 1), range(n_qubits))
+        self.x(range(n_qubits))
+        self.h(range(n_qubits))
+
 class MazeOracle(QuantumCircuit):
     def __init__(self, maze_circuit_info: MazeCircuitInfo, turn_back_check: bool = False):
         self.__maze_circuit_info = maze_circuit_info
@@ -144,18 +153,22 @@ class QuantumMazeCircuit(Graph, QuantumCircuit):
     def __init__(self, graph: Graph, max_path_length: int = None, turn_back_check: bool = False):
         self.__info = MazeCircuitInfo(graph, max_path_length)
         oracle = MazeOracle(self.__info, turn_back_check)
+        grover_operator = GroverDiffusionOperator(self.info.num_qubits_in_max_path)
         
+        grover_iteration_circuit = QuantumCircuit(len(oracle.qubits), name='Grover Iteration')
+        grover_iteration_circuit.append(oracle, range(len(oracle.qubits)))  
+        grover_iteration_circuit.append(grover_operator, range(self.info.num_qubits_in_max_path))
 
         QuantumCircuit.__init__(self, len(oracle.qubits), self.info.num_qubits_in_max_path) # init quantum circuit
         self.name = 'Maze Solver'
-        grover_operator = GroverOperator(oracle, reflection_qubits=list(range(self.info.num_qubits_in_max_path)), name="Grover Operator")
+        
         iterations = int(np.ceil( (np.pi / 4) * np.sqrt(self.info.num_qubits_in_max_path) ))
         for i in range(self.info.num_qubits_in_max_path):
             self.h(i)
 
         for i in range(iterations):
             self.barrier()
-            self.append(grover_operator, range(len(oracle.qubits)))  
+            self.append(grover_iteration_circuit, range(len(oracle.qubits)))  
 
     @property
     def info(self) -> int:

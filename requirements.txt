@@ -2,7 +2,7 @@ protobuf==4.25.8
 flatbuffers==23.5.26
 qiskit-aer==0.15.0
 qiskit[visualization]==1.4.2
-matplotlib==3.7.2
+matplotlib==3.10.3
 pylatexenc==2.10
 seaborn==0.12.2
 ipywidgets==8.0.4

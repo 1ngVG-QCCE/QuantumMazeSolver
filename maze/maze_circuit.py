@@ -95,25 +95,27 @@ class MazeOracle(QuantumCircuit):
     # check if the nodes are equal 
     def __generate_turn_back_check_circuit(self):
         number_of_qubits_for_a_node = self.__maze_circuit_info.bits_per_node
-        ancilla_index = number_of_qubits_for_two_nodes = 2 * number_of_qubits_for_a_node
-        total_size = number_of_qubits_for_two_nodes + 1
+        ancilla_index = number_of_qubits_for_three_nodes = 3 * number_of_qubits_for_a_node
+        total_size = number_of_qubits_for_three_nodes + 1
         circ = QuantumCircuit(total_size, name='Turn Back Check')
 
         # first check: two nodes are different
-        different_nodes_check_circuit = QuantumCircuit(number_of_qubits_for_two_nodes, name='Different Nodes Check')
+        different_nodes_check_circuit = QuantumCircuit(number_of_qubits_for_three_nodes, name='Different Nodes Check')
         for i in range(number_of_qubits_for_a_node):
-            different_nodes_check_circuit.cx(i, i + number_of_qubits_for_a_node)
-            different_nodes_check_circuit.x(i + number_of_qubits_for_a_node)
+            different_nodes_check_circuit.cx(i, i + 2 * number_of_qubits_for_a_node)
+            different_nodes_check_circuit.x(i + 2 * number_of_qubits_for_a_node)
 
-        circ.append(different_nodes_check_circuit, range(number_of_qubits_for_two_nodes))    
-        circ.append(XGate().control(number_of_qubits_for_a_node), range(number_of_qubits_for_a_node, total_size))
+        circ.append(different_nodes_check_circuit, range(number_of_qubits_for_three_nodes))    
+        circ.append(XGate().control(number_of_qubits_for_a_node), range(2*number_of_qubits_for_a_node, total_size))
         circ.x(ancilla_index)
-        circ.append(different_nodes_check_circuit.inverse(), range(number_of_qubits_for_two_nodes))    
+        circ.append(different_nodes_check_circuit.inverse(), range(number_of_qubits_for_three_nodes))    
 
         # second check: first node is equal to the last node
         last_id = self.__maze_circuit_info.graph.end.id
         circ.append(self.__node_to_binary(last_id), range(number_of_qubits_for_a_node))
-        circ.append(XGate().control(number_of_qubits_for_a_node), list(range(number_of_qubits_for_a_node)) + [ancilla_index])
+        circ.append(self.__node_to_binary(last_id), range(number_of_qubits_for_a_node, 2*number_of_qubits_for_a_node))
+        circ.append(XGate().control(2*number_of_qubits_for_a_node), list(range(2*number_of_qubits_for_a_node)) + [ancilla_index])
+        circ.append(self.__node_to_binary(last_id), range(number_of_qubits_for_a_node, 2*number_of_qubits_for_a_node))
         circ.append(self.__node_to_binary(last_id), range(number_of_qubits_for_a_node))
 
         return circ
@@ -143,7 +145,7 @@ class MazeOracle(QuantumCircuit):
                 start_qubit    = s * self.__maze_circuit_info.bits_per_node
                 previous_qubit = (s-1) * self.__maze_circuit_info.bits_per_node
                 next_qubit     = (s+1) * self.__maze_circuit_info.bits_per_node
-                full_edge_check.append(turn_back_check, list(range(previous_qubit, start_qubit)) + list(range(next_qubit, next_qubit + self.__maze_circuit_info.bits_per_node)) + [self.__maze_circuit_info.max_path_length + self.__maze_circuit_info.num_qubits_in_max_path + s - 1])
+                full_edge_check.append(turn_back_check, list(range(previous_qubit, next_qubit + self.__maze_circuit_info.bits_per_node)) + [self.__maze_circuit_info.max_path_length + self.__maze_circuit_info.num_qubits_in_max_path + s - 1])
 
         self.append(full_edge_check, range(self.__total_size))
         self.append(ZGate().control(self.__num_ancillas - 1), range(self.__maze_circuit_info.num_qubits_in_max_path, self.__total_size))

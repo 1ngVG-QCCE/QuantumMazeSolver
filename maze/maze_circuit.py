@@ -30,7 +30,7 @@ class MazeCircuitInfo:
 
 class GroverDiffusionOperator(QuantumCircuit):
     def __init__(self, n_qubits: int):
-        super().__init__(n_qubits, name="Grover Operator")
+        super().__init__(n_qubits, name="Diffuser")
         self.h(range(n_qubits))
         self.x(range(n_qubits))
         self.append(ZGate().control(n_qubits - 1), range(n_qubits))
@@ -110,6 +110,7 @@ class MazeOracle(QuantumCircuit):
         circ.x(ancilla_index)
         circ.append(different_nodes_check_circuit.inverse(), range(number_of_qubits_for_three_nodes))    
 
+        circ.barrier()
         # second check: first node is equal to the last node
         last_id = self.__maze_circuit_info.graph.end.id
         circ.append(self.__node_to_binary(last_id), range(number_of_qubits_for_a_node))

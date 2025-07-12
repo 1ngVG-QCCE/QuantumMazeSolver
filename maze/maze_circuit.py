@@ -154,9 +154,7 @@ class MazeOracle(QuantumCircuit):
                 start_qubit    = s * self.__maze_circuit_info.bits_per_node
                 previous_qubit = (s-1) * self.__maze_circuit_info.bits_per_node
                 next_qubit     = (s+1) * self.__maze_circuit_info.bits_per_node
-                full_turn_back_check.append(turn_back_check, list(range(previous_qubit, next_qubit + self.__maze_circuit_info.bits_per_node)) + [self.__maze_circuit_info.num_qubits_in_max_path + s - 1])
-            print(f"Full Turn Back Check Size: {range(self.__maze_circuit_info.num_qubits_in_max_path)}")
-            print(f"Full Turn Back Check Size: {range(self.__maze_circuit_info.num_qubits_in_max_path + self.__maze_circuit_info.max_path_length, self.__total_size)}")    
+                full_turn_back_check.append(turn_back_check, list(range(previous_qubit, next_qubit + self.__maze_circuit_info.bits_per_node)) + [self.__maze_circuit_info.num_qubits_in_max_path + s - 1])    
             path_check.append(full_turn_back_check, list(range(self.__maze_circuit_info.num_qubits_in_max_path)) + list(range(self.__maze_circuit_info.num_qubits_in_max_path + self.__maze_circuit_info.max_path_length, self.__total_size)))
 
         self.append(path_check, range(self.__total_size))

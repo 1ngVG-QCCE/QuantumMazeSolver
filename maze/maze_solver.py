@@ -39,13 +39,11 @@ class QuantumMazeSolver:
             n = int(result[offset : offset+node_size], 2)
             path.insert(0, n)
         return Path(path)
-
+    
     def run(self, circuit: QuantumMazeCircuit, shots: int = 1) -> list[Path]:
         sim = AerSimulator()
         transpiled = transpile(circuit, sim)
-        # Add measure to circuit
         transpiled.measure(range(len(circuit.clbits)), range(len(circuit.clbits)))
-        # Run
         results = sim.run(transpiled, shots=shots, memory=True).result().get_memory()
         paths = [self.__result_to_path(r, circuit.info.num_nodes_in_max_path, circuit.info.bits_per_node) for r in results]
         return paths 

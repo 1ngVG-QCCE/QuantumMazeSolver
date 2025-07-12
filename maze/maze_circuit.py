@@ -122,35 +122,46 @@ class MazeOracle(QuantumCircuit):
         return circ
 
     def __generate(self):
-        full_edge_check = QuantumCircuit(self.__total_size, name='Full Edge Check')
+        path_check = QuantumCircuit(self.__total_size, name='Path Check')
         edges = list(self.__maze_circuit_info.graph.edges)
 
         # add self-cycle to last node (for termination)
         edges.append(Edge(self.__maze_circuit_info.graph.end, self.__maze_circuit_info.graph.end))
-        last_edge_check  = self.__generate_edge_check_circuit(filter(lambda e: e.end == self.__maze_circuit_info.graph.end, edges)) # only check edges containing the last node
+        last_edge_check  = self.__generate_edge_check_circuit(filter(lambda e: e.end == self.__maze_circuit_info.graph.end, edges))
+        last_edge_check.name = "Last Edge Check"
         last_edge_check_ancilla = self.__maze_circuit_info.num_qubits_in_max_path + self.__maze_circuit_info.max_path_length - 1
-        full_edge_check.append(last_edge_check, list(range(self.__maze_circuit_info.num_qubits_in_max_path - 2 * self.__maze_circuit_info.bits_per_node, self.__maze_circuit_info.num_qubits_in_max_path)) + [last_edge_check_ancilla])
+        path_check.append(last_edge_check, list(range(self.__maze_circuit_info.num_qubits_in_max_path - 2 * self.__maze_circuit_info.bits_per_node, self.__maze_circuit_info.num_qubits_in_max_path)) + [last_edge_check_ancilla])
 
         first_edge_check = self.__generate_edge_check_circuit(filter(lambda e: e.start == self.__maze_circuit_info.graph.start, edges)) # only check edges containing the first node
+        first_edge_check.name = "First Edge Check"
         first_edge_check_ancilla = self.__maze_circuit_info.num_qubits_in_max_path
-        full_edge_check.append(first_edge_check, list(range(2 * self.__maze_circuit_info.bits_per_node)) + [first_edge_check_ancilla]) 
+        path_check.append(first_edge_check, list(range(2 * self.__maze_circuit_info.bits_per_node)) + [first_edge_check_ancilla]) 
 
+        full_edge_check_size = self.__maze_circuit_info.num_qubits_in_max_path + self.__maze_circuit_info.max_path_length
+        full_edge_check = QuantumCircuit(full_edge_check_size, name='Full Edge Check')
         edge_check = self.__generate_edge_check_circuit(edges) # check all other edges
         for s in range(1, self.__maze_circuit_info.max_path_length - 1):
             start_qubit    = s * self.__maze_circuit_info.bits_per_node
             full_edge_check.append(edge_check, list(range(start_qubit, start_qubit + 2 * self.__maze_circuit_info.bits_per_node)) + [self.__maze_circuit_info.num_qubits_in_max_path + s])
 
+        path_check.append(full_edge_check, range(full_edge_check_size))
+
         if self.__turn_back_check:
+            full_turn_back_check_size = self.__maze_circuit_info.num_qubits_in_max_path + self.__maze_circuit_info.max_path_length - 1
+            full_turn_back_check = QuantumCircuit(full_turn_back_check_size, name='Full Turn Back Check')
             turn_back_check = self.__generate_turn_back_check_circuit()
             for s in range(1, self.__maze_circuit_info.max_path_length):
                 start_qubit    = s * self.__maze_circuit_info.bits_per_node
                 previous_qubit = (s-1) * self.__maze_circuit_info.bits_per_node
                 next_qubit     = (s+1) * self.__maze_circuit_info.bits_per_node
-                full_edge_check.append(turn_back_check, list(range(previous_qubit, next_qubit + self.__maze_circuit_info.bits_per_node)) + [self.__maze_circuit_info.max_path_length + self.__maze_circuit_info.num_qubits_in_max_path + s - 1])
+                full_turn_back_check.append(turn_back_check, list(range(previous_qubit, next_qubit + self.__maze_circuit_info.bits_per_node)) + [self.__maze_circuit_info.num_qubits_in_max_path + s - 1])
+            print(f"Full Turn Back Check Size: {range(self.__maze_circuit_info.num_qubits_in_max_path)}")
+            print(f"Full Turn Back Check Size: {range(self.__maze_circuit_info.num_qubits_in_max_path + self.__maze_circuit_info.max_path_length, self.__total_size)}")    
+            path_check.append(full_turn_back_check, list(range(self.__maze_circuit_info.num_qubits_in_max_path)) + list(range(self.__maze_circuit_info.num_qubits_in_max_path + self.__maze_circuit_info.max_path_length, self.__total_size)))
 
-        self.append(full_edge_check, range(self.__total_size))
+        self.append(path_check, range(self.__total_size))
         self.append(ZGate().control(self.__num_ancillas - 1), range(self.__maze_circuit_info.num_qubits_in_max_path, self.__total_size))
-        self.append(full_edge_check.inverse(), range(self.__total_size)) 
+        self.append(path_check.inverse(), range(self.__total_size)) 
 
 class QuantumMazeCircuit(Graph, QuantumCircuit):
     def __init__(self, graph: Graph, max_path_length: int = None, turn_back_check: bool = False, number_of_solutions: int = 1):
